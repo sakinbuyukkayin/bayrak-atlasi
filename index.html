@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bayrak Atlası">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#e6eff1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c1d24" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Bayrak Atlası</title>
+<style>
+:root{
+  --bg:#e6eff1; --surface:#ffffff; --ink:#13303c; --muted:#5d7580;
+  --sea:#a9d2d9; --sea-deep:#8fc2cb; --land:#f1ead8; --land-out:#d7e2df; --border:#ffffff;
+  --gold:#e3a400; --good:#1d9566; --bad:#dc4b37; --btn:#ffffff; --btn-edge:#c9dadd; --soft:#f2f7f8;
+  color-scheme:light; box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c1d24; --surface:#16303a; --ink:#e9f3f5; --muted:#8fa9b2;
+    --sea:#123a48; --sea-deep:#0f3240; --land:#3a5560; --land-out:#20393f; --border:#0f2730;
+    --btn:#173440; --btn-edge:#24495a; --soft:#112831; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c1d24; --surface:#16303a; --ink:#e9f3f5; --muted:#8fa9b2;
+  --sea:#123a48; --sea-deep:#0f3240; --land:#3a5560; --land-out:#20393f; --border:#0f2730;
+  --btn:#173440; --btn-edge:#24495a; --soft:#112831; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{margin:0}
+body{background:var(--bg); color:var(--ink);
+  font-family:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent}
+button{font:inherit; color:inherit; -webkit-user-select:none; user-select:none; touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--gold); outline-offset:2px}
+.app{max-width:1080px; margin:0 auto; padding:10px 16px 28px}
+
+.top{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:4px 0 10px}
+.top h1{margin:0; font-size:24px; font-weight:800; letter-spacing:-.02em}
+.top-right{display:flex; align-items:center; gap:8px}
+.streak{font-weight:700; font-size:15px; background:var(--surface); border:1.5px solid var(--btn-edge); border-radius:999px; padding:6px 12px; white-space:nowrap}
+.streak small{color:var(--muted); font-weight:600; margin-left:6px}
+.icon{width:36px; height:36px; border-radius:50%; border:1.5px solid var(--btn-edge); background:var(--surface); font-size:17px; cursor:pointer}
+.conts{display:flex; gap:6px; overflow-x:auto; padding-bottom:10px; scrollbar-width:none}
+.conts::-webkit-scrollbar{display:none}
+.chip{flex:none; border:1.5px solid var(--btn-edge); background:transparent; color:var(--muted); border-radius:999px; padding:6px 12px; font-size:14px; font-weight:700; cursor:pointer}
+.chip.on{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+
+@media (min-width:860px){ .layout{display:grid; grid-template-columns:1.2fr 1fr; gap:28px; align-items:start} .mapcard{position:sticky; top:12px} }
+.mapcard{margin-bottom:14px}
+.maphead{display:flex; justify-content:space-between; align-items:baseline; font-size:14px; font-weight:700; margin:0 2px 6px}
+.maphead span:last-child{color:var(--muted)}
+.bar{height:6px; border-radius:6px; background:var(--btn-edge); overflow:hidden; margin-bottom:8px}
+.bar i{display:block; height:100%; width:0; background:var(--gold); border-radius:6px; transition:width .6s ease}
+.mapwrap{position:relative; border-radius:20px; overflow:hidden;
+  background:radial-gradient(120% 90% at 30% 20%, var(--sea) 0%, var(--sea-deep) 100%)}
+.maploading{aspect-ratio:1.2; display:grid; place-items:center; color:var(--muted); font-weight:700}
+#svg{display:block; width:100%; height:auto; touch-action:none; cursor:grab}
+#svg:active{cursor:grabbing}
+.bg{fill:var(--land-out); stroke:var(--border); stroke-width:.6; vector-effect:non-scaling-stroke}
+.cty{fill:var(--land); stroke:var(--border); stroke-width:.9; vector-effect:non-scaling-stroke; transition:fill .7s; cursor:pointer}
+.cty[data-l="1"]{fill:color-mix(in srgb, var(--c) 30%, var(--land))}
+.cty[data-l="2"]{fill:color-mix(in srgb, var(--c) 62%, var(--land))}
+.cty[data-l="3"]{fill:var(--c)}
+.cty.micro{stroke:var(--ink); stroke-opacity:.55; stroke-width:1}
+.cty.hit{stroke-width:3.5; animation:flash 1s ease 3}
+.cty.hit.ok{stroke:var(--good); stroke-opacity:1} .cty.hit.bad{stroke:var(--bad); stroke-opacity:1}
+@keyframes flash{50%{stroke-opacity:.25}}
+.lbl{text-anchor:middle; dominant-baseline:central; opacity:0; transition:opacity .5s; pointer-events:none}
+.lbl[data-l="1"]{opacity:.5} .lbl[data-l="2"]{opacity:.85} .lbl[data-l="3"]{opacity:1} .lbl.reveal{opacity:1}
+.zbtn{position:absolute; right:10px; top:10px; display:none; border:0; border-radius:12px; background:var(--surface); color:var(--ink);
+  padding:7px 11px; font-size:13px; font-weight:800; box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer}
+.mapwrap.zoomed .zbtn{display:block}
+.hint{font-size:13px; color:var(--muted); margin:8px 2px 0; line-height:1.4}
+/* yedek: kare harita */
+.tiles{display:grid; grid-template-columns:repeat(10,1fr); gap:3px; padding:9px}
+.t{aspect-ratio:1; border:0; padding:0; border-radius:24%; background:var(--land); display:grid; place-items:center; font-size:clamp(14px,4.6vw,27px); cursor:pointer}
+.t span{opacity:0; transition:opacity .5s} .t[data-l="1"] span{opacity:.5} .t[data-l="2"] span{opacity:.85} .t[data-l="3"] span{opacity:1}
+.t[data-l="3"]{box-shadow:0 0 0 2px var(--gold)} .t.hit span{opacity:1} .t.hit.ok{box-shadow:0 0 0 3px var(--good)} .t.hit.bad{box-shadow:0 0 0 3px var(--bad)}
+
+.quiz{background:var(--surface); border-radius:22px; padding:14px; border:1.5px solid var(--btn-edge)}
+.seg{display:grid; grid-template-columns:1fr 1fr 1.25fr; background:var(--bg); border-radius:12px; padding:3px; margin-bottom:10px}
+.seg button{border:0; background:transparent; border-radius:9px; padding:8px 2px; font-size:13px; font-weight:700; color:var(--muted); cursor:pointer}
+.seg button.on{background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.rhead{display:flex; justify-content:space-between; font-size:13px; font-weight:700; color:var(--muted); margin-bottom:2px}
+.prompt{text-align:center; padding:4px 0 12px}
+.bigflag{font-size:clamp(76px,24vw,124px); line-height:1.08}
+.bigname{font-size:clamp(28px,8vw,40px); font-weight:800; letter-spacing:-.02em; padding:16px 0 4px}
+.prompt p{margin:2px 0 0; color:var(--muted); font-size:15px}
+.opts{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.opt{min-height:58px; border-radius:15px; border:1.5px solid var(--btn-edge); background:var(--btn);
+  box-shadow:0 3px 0 var(--btn-edge); font-size:16px; font-weight:700; padding:10px 8px; cursor:pointer; transition:transform .08s, background .2s}
+.opt:active:not(:disabled){transform:translateY(2px); box-shadow:0 1px 0 var(--btn-edge)}
+.opts.flags .opt{font-size:46px; min-height:80px; line-height:1}
+.opt.right{background:var(--good); border-color:var(--good); box-shadow:0 3px 0 #13704b; color:#fff}
+.opt.wrong{background:var(--bad); border-color:var(--bad); box-shadow:0 3px 0 #a5321f; color:#fff}
+.opt:disabled{cursor:default} .opt:disabled:not(.right):not(.wrong){opacity:.5}
+
+.fb{margin-top:14px; border-top:1.5px dashed var(--btn-edge); padding-top:12px}
+.fbhead{font-weight:800; font-size:18px} .fbhead.ok{color:var(--good)} .fbhead.bad{color:var(--bad)}
+.fbc{display:flex; align-items:center; gap:10px; margin-top:6px; font-size:17px}
+.fbc .f{font-size:34px; line-height:1}
+.stars{color:var(--gold); letter-spacing:2px; font-size:15px}
+.fb p{margin:6px 0 0; font-size:15px; line-height:1.45}
+.fb .chose{color:var(--muted)}
+.info{background:var(--soft); border-radius:14px; padding:10px 12px; margin-top:10px}
+.info h4{margin:0; font-size:14px; font-weight:800}
+.info p{margin-top:3px}
+.star{font-weight:700; color:var(--gold)}
+.next{width:100%; margin-top:12px; min-height:52px; border:0; border-radius:15px; background:var(--ink); color:var(--bg); font-size:17px; font-weight:800; cursor:pointer}
+.ghost{width:100%; margin-top:8px; min-height:46px; border:1.5px solid var(--btn-edge); border-radius:15px; background:transparent; font-size:16px; font-weight:700; cursor:pointer}
+
+.setlist{display:grid; gap:10px}
+.setlist > p{margin:0 0 2px; color:var(--muted); font-size:14px; line-height:1.4}
+.set{display:grid; gap:4px; text-align:left; border:1.5px solid var(--btn-edge); background:var(--btn); border-radius:16px; padding:11px 13px; cursor:pointer; box-shadow:0 3px 0 var(--btn-edge)}
+.set b{font-size:16px} .set small{color:var(--muted); font-weight:600}
+.sf{font-size:24px; letter-spacing:3px; line-height:1.2}
+.sf.big{font-size:34px; text-align:center; margin:6px 0}
+.intro h3,.result h3{margin:4px 0 0; font-size:22px; letter-spacing:-.01em; text-align:center}
+.tip{background:var(--soft); border-radius:14px; padding:12px; font-size:15px; line-height:1.5; margin:10px 0 0}
+.tip b{display:block; margin-bottom:4px}
+.score{font-size:56px; font-weight:800; text-align:center; letter-spacing:-.03em; margin:4px 0 0}
+.score + p{text-align:center; color:var(--muted); margin:0}
+
+.toast{position:fixed; left:50%; bottom:calc(18px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(20px);
+  background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:14px; font-size:15px; font-weight:700;
+  opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; max-width:90vw; text-align:center; z-index:10}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion: reduce){ .cty.hit{animation:none} *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>Bayrak Atlası</h1>
+    <div class="top-right">
+      <span class="streak" id="streak">🔥 0</span>
+      <button class="icon" id="reset" aria-label="İlerlemeyi sıfırla" title="İlerlemeyi sıfırla">↺</button>
+    </div>
+  </header>
+  <nav class="conts" id="conts" aria-label="Kıtalar"></nav>
+  <div class="layout">
+    <section class="mapcard" aria-label="Avrupa haritası">
+      <div class="maphead"><span id="progPct">Avrupa</span><span id="progNum"></span></div>
+      <div class="bar"><i id="barFill"></i></div>
+      <div class="mapwrap" id="mapwrap"><div class="maploading">Harita yükleniyor…</div></div>
+      <p class="hint">Bildikçe ülkeler bayraklarının rengine boyanır ve üstünde bayrakları belirir. İki parmakla yakınlaştırabilir, sürükleyebilirsin.</p>
+    </section>
+    <section class="quiz" aria-live="polite">
+      <div class="seg" id="seg">
+        <button data-m="f2n">Bayrak → Ülke</button>
+        <button data-m="n2f">Ülke → Bayrak</button>
+        <button data-m="sets">Karıştırılanlar</button>
+      </div>
+      <div id="qbody"></div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// kod|ad|kareX|kareY|renk|boyut(0 mikro..3 büyük)|boylam|enlem|haritadaki adlar|bayrağın anlamı|şaşırtıcı bilgi
+const RAW = `
+IS|İzlanda|0|0|#02529C|3|-18.6|64.9|Iceland|Mavi dağları ve gökyüzünü, beyaz buzulları ve karı, kırmızı da volkanların ateşini temsil eder.|930’da kurulan meclisi Althing, dünyanın hâlâ işleyen en eski parlamentolarından biri sayılır.
+NO|Norveç|5|0|#BA0C2F|3|9.5|61.3|Norway|Kırmızı-beyaz-mavi, özgürlüğün simgesi sayılan Fransa, ABD ve İngiltere bayraklarının renklerinden esinlenmiştir; haç Hristiyanlığı temsil eder.|Svalbard’daki Longyearbyen’de 1950’den beri kimse gömülmüyor: donmuş toprakta cesetler çürümüyor.
+SE|İsveç|6|0|#FECC02|3|15.5|61.5|Sweden|Mavi ve sarı, üç altın taçlı İsveç armasından gelir; haç Hristiyanlığı simgeler.|1814’ten beri hiçbir savaşa katılmadı. İki yüzyılı aşan bir barış.
+FI|Finlandiya|7|0|#002F6C|3|26|63|Finland|Beyaz karı, mavi ise ülkenin binlerce gölünü ve gökyüzünü simgeler.|5,5 milyonluk ülkede yaklaşık 3 milyon sauna olduğu tahmin ediliyor.
+IE|İrlanda|0|1|#169B62|2|-8|53.2|Ireland|Yeşil Katolik İrlandalıları, turuncu Protestanları (Orange Hanedanı), beyaz ise ikisi arasındaki barışı simgeler.|Ulusal sembolü bir arptır. Guinness logosundaki arp, devletin arpının ayna görüntüsüdür.
+GB|Birleşik Krallık|1|1|#012169|3|-1.8|52.8|United Kingdom;UK|Kırmızı düz haç İngiltere’nin (Aziz George), beyaz çapraz haç İskoçya’nın (Aziz Andrew), kırmızı çapraz haç İrlanda’nın (Aziz Patrick).|Bayrak simetrik değil; ters asılması gemicilikte tehlike işareti sayılır.
+DK|Danimarka|5|1|#C8102E|2|9.3|56|Denmark|Efsaneye göre 1219’da bir savaş sırasında gökten düştü. Beyaz haç Hristiyanlığı simgeler.|Dünyanın en büyük adası Grönland, Kuzey Amerika’da olmasına rağmen Danimarka Krallığı’na bağlı.
+EE|Estonya|7|1|#0072CE|2|25.5|58.7|Estonia|Mavi gökyüzünü ve sadakati, siyah toprağı ve geçmişin acılarını, beyaz umudu simgeler.|2005’te internetten oy kullanmayı başlatan ilk ülke. Skype da burada geliştirildi.
+RU|Rusya|8|1|#0039A6|3|38|56.5|Russia;Russian Federation|Büyük Petro döneminde Hollanda bayrağından esinlenildiği anlatılır; bu renkler sonra “Slav renkleri” olarak birçok Slav ülkesine yayıldı.|Dünyanın en büyük ülkesi, 11 saat dilimine yayılır. Yüzölçümü Plüton’un yüzeyinden bile büyük.
+BE|Belçika|3|2|#ED2939|2|4.6|50.6|Belgium|Renkler eski Brabant Dükalığı’nın armasından gelir: siyah zemin, altın aslan, kırmızı pençeler.|2010–2011’de 541 gün hükümetsiz kalarak dünya rekoru kırdı.
+NL|Hollanda|4|2|#F36C21|2|5.6|52.2|Netherlands|Orange Hanedanı’ndan gelen turuncu şerit zamanla kırmızıya döndü. Turuncu hâlâ milli renk; sporcular turuncu giyer.|Ülkenin yaklaşık dörtte biri deniz seviyesinin altında.
+DE|Almanya|4|2|#FFCE00|3|10.4|51.2|Germany|Siyah-kırmızı-altın, Napolyon’a karşı savaşan gönüllülerin üniformalarından gelir; birlik ve özgürlük demektir.|Otoyolların bir kısmında hâlâ genel bir hız sınırı yok.
+PL|Polonya|6|2|#DC143C|3|19.4|52.1|Poland|Beyaz, ülke armasındaki beyaz kartaldan; kırmızı, kartalın durduğu kalkanın renginden gelir.|Marie Curie Polonyalıdır: iki farklı bilim dalında Nobel kazanan tek kişi.
+LV|Letonya|7|2|#9E3039|2|25.6|56.9|Latvia|Efsaneye göre yaralı bir liderin sarıldığı beyaz çarşaf kanla boyandı; beyaz şerit kanın değmediği yerdir.|Başkent Riga, Art Nouveau binalarının dünyada en yoğun olduğu şehirlerden biri.
+BY|Belarus|8|2|#C8313E|2|28|53.6|Belarus|Kırmızı geçmişi ve fedakârlığı, yeşil ormanları ve umudu simgeler; soldaki desen geleneksel bir dokuma motifidir.|Białowieża Ormanı, Avrupa bizonunun yaşadığı son büyük ilkel ormanlardan.
+FR|Fransa|3|3|#0055A4|3|2.4|46.6|France|Mavi ve kırmızı Paris’in, beyaz krallığın rengiydi; devrimle üçü birleşti.|Denizaşırı toprakları sayesinde en çok saat dilimine sahip ülke: tam 12.
+LU|Lüksemburg|4|3|#00A1DE|1|6.1|49.7|Luxembourg|Renkler Lüksemburg armasındaki kırmızı aslan ile mavi-beyaz şeritlerden gelir.|2020’de toplu taşımayı tamamen ücretsiz yapan ilk ülke oldu.
+CZ|Çekya|5|3|#11457E|2|15.4|49.8|Czechia;Czech Rep.;Czech Republic|Beyaz ve kırmızı Bohemya’nın, mavi üçgen Moravya’nın rengidir.|Kişi başına en çok bira içilen ülke; bu sıralamada yıllardır birinci.
+SK|Slovakya|6|3|#EE1C25|2|19.6|48.7|Slovakia|Çift haç Hristiyanlığı, altındaki üç tepe Tatra, Fatra ve Matra dağlarını simgeler.|Kişi başına en çok otomobil üreten ülke.
+LT|Litvanya|7|3|#FDB913|2|23.9|55.3|Lithuania|Sarı güneşi ve refahı, yeşil ormanları ve umudu, kırmızı vatan için dökülen kanı simgeler.|Bir hesaplamaya göre Avrupa’nın coğrafi merkezi Vilnius yakınlarında.
+UA|Ukrayna|8|3|#FFD500|3|31.5|49|Ukraine|Mavi gökyüzünü, sarı uçsuz bucaksız buğday tarlalarını simgeler.|Dünyanın en derin metro istasyonu Kiev’deki Arsenalna: yaklaşık 105 metre.
+PT|Portekiz|1|4|#006600|2|-8.1|39.7|Portugal|Yeşil umudu, kırmızı devrimi simgeler; ortadaki usturlap keşif çağının denizcilik aracıdır.|İngiltere ile 14. yüzyıldan beri süren, dünyanın hâlâ yürürlükteki en eski ittifakına sahip.
+ES|İspanya|2|4|#F1BF00|3|-3.7|40.2|Spain|Kırmızı ve sarı Aragon Krallığı’nın renklerinden; armadaki iki sütun Cebelitarık’taki Herkül Sütunları’dır.|Milli marşının sözü yok; resmi olarak yalnızca müzikten oluşuyor.
+AD|Andorra|3|4|#10069F|0|1.55|42.55||Mavi ve kırmızı Fransa’yı, sarı ve kırmızı İspanya’yı hatırlatır: ülkeyi iki eş prens birlikte yönetir.|Devlet başkanlarından biri Fransa Cumhurbaşkanı, diğeri İspanya’daki Urgell piskoposu.
+CH|İsviçre|4|4|#DA291C|2|8.2|46.8|Switzerland|Beyaz haç Hristiyanlığı ve tarafsızlığı simgeler. Kızılhaç amblemi bu bayrağın renkleri ters çevrilerek yapıldı.|Dört resmi dili var: Almanca, Fransızca, İtalyanca ve Romanşça.
+LI|Lihtenştayn|5|4|#002B7F|0|9.55|47.15||Mavi gökyüzünü, kırmızı akşam ocaklarının ateşini, taç ise ülkenin bir prenslik olduğunu simgeler.|Dünyada “çift kara ile çevrili” iki ülkeden biri: hem kendisinin hem komşularının denize kıyısı yok. Diğeri Özbekistan.
+AT|Avusturya|6|4|#ED2939|2|14.3|47.6|Austria|Efsaneye göre bir dükün beyaz giysisi savaşta kana bulandı, yalnızca kemerinin altı beyaz kaldı.|Viyana’daki Schönbrunn (1752), dünyanın hâlâ açık olan en eski hayvanat bahçesi.
+HU|Macaristan|7|4|#477050|2|19.4|47.1|Hungary|Kırmızı gücü, beyaz sadakati, yeşil umudu simgeler.|Rubik küpünü 1974’te Macar mimar Ernő Rubik icat etti.
+MD|Moldova|8|4|#0046AE|2|28.5|47.2|Moldova;Republic of Moldova|Renkler Romanya ile ortak tarihi yansıtır; armadaki yaban öküzü başı Boğdan Prensliği’nin sembolüdür.|Mileștii Mici mahzenleri dünyanın en büyük şarap koleksiyonu; yer altı galerileri 200 km’yi buluyor.
+MC|Monako|3|5|#CE1126|0|7.42|43.74||Renkler yüzyıllardır ülkeyi yöneten Grimaldi ailesinin armasından gelir.|Vatikan’dan sonra dünyanın en küçük ikinci ülkesi: 2 km²’den küçük.
+IT|İtalya|4|5|#009246|3|12.6|42.8|Italy|Fransız bayrağından esinlendi; yeşil, beyaz ve kırmızı genellikle umut, inanç ve sevgi diye yorumlanır.|Topraklarının içinde iki ayrı ülke var: Vatikan ve San Marino.
+SM|San Marino|5|5|#5EB6E4|0|12.46|43.94||Beyaz barışı, açık mavi gökyüzünü ve özgürlüğü simgeler; armadaki üç kule Titano Dağı’ndaki kalelerdir.|301 yılında kurulduğu kabul edilir: dünyanın hâlâ var olan en eski cumhuriyeti.
+SI|Slovenya|6|5|#005DA4|1|14.9|46.1|Slovenia|Armada ülkenin en yüksek dağı Triglav, altındaki dalgalı çizgiler deniz ve nehirler, üç yıldız Celje kontlarından gelir.|Topraklarının yaklaşık %60’ı orman: Avrupa’nın en ormanlık ülkelerinden.
+HR|Hırvatistan|7|5|#FF0000|2|16|45.6|Croatia|Kırmızı-beyaz damalı arma “šahovnica”, Orta Çağ’dan beri Hırvat sembolü.|Kravat Hırvatlardan çıktı: Fransızca “cravate” kelimesi “Hırvat” sözcüğünden türer.
+RO|Romanya|8|5|#CE1126|3|25|45.9|Romania|Mavi gökyüzünü, sarı toprağın zenginliğini, kırmızı cesareti simgeler.|Bükreş’teki Parlamento Sarayı dünyanın en ağır binası sayılıyor.
+VA|Vatikan|4|6|#FFE000|0|12.45|41.9||Sarı ve beyaz papalığın renkleri; çapraz anahtarlar Aziz Petrus’a verilen “cennetin anahtarları”dır.|0,44 km² ile dünyanın en küçük ülkesi; ATM’lerinde Latince menü seçeneği bile var.
+BA|Bosna-Hersek|6|6|#FECB00|2|17.8|44.2|Bosnia and Herz.;Bosnia and Herzegovina|Sarı üçgen ülkenin şeklini ve üç kurucu halkı, yıldızlar Avrupa’yı simgeler.|Mostar Köprüsü, Osmanlı mimarı Mimar Hayreddin’in 1566’da tamamladığı eserdir.
+RS|Sırbistan|7|6|#0C4076|2|20.8|44.1|Serbia;Republic of Serbia|Kırmızı-mavi-beyaz Slav renkleri; çift başlı kartal Bizans’tan miras.|Dünyanın en büyük ahududu ihracatçılarından biri.
+BG|Bulgaristan|8|6|#00966E|2|25.3|42.7|Bulgaria|Beyaz barışı, yeşil verimli toprakları, kırmızı cesareti simgeler.|Bulgarlar “evet” derken başlarını iki yana, “hayır” derken yukarı aşağı sallar.
+MT|Malta|4|7|#CF142B|0|14.4|35.9||Beyaz ve kırmızı Normanlardan gelir; köşedeki George Haçı 1942’de adanın savaştaki direnişi için verildi.|Ġgantija tapınakları Mısır piramitlerinden daha eski.
+ME|Karadağ|6|7|#D3AE3B|1|19.2|42.8|Montenegro|Altın çift başlı kartal ve aslan, eski Petrović hanedanının armasından gelir.|“Montenegro” Venedikçe “kara dağ” demek; Türkçe adı da bunun birebir çevirisi.
+XK|Kosova|7|7|#244AA5|1|20.9|42.6|Kosovo|Altı yıldızın ülkedeki ana etnik toplulukları simgelediği kabul edilir; mavi ve sarı Avrupa Birliği’ni hatırlatır.|2008’de bağımsızlık ilan etti: Avrupa’nın en genç ülkelerinden, nüfusu da en genç olanlardan.
+MK|Kuzey Makedonya|8|7|#F8C300|2|21.7|41.6|North Macedonia;Macedonia|Sekiz ışınlı güneş, milli marştaki “özgürlüğün yeni güneşi”ne gönderme yapar.|Adı, Yunanistan’la 2018’de imzalanan Prespa Anlaşması’yla 2019’da “Kuzey Makedonya” oldu.
+TR|Türkiye|9|7|#E30A17|3|34.5|39.2|Turkey;Türkiye|Kırmızı zemin şehitlerin kanını, ay-yıldız Türk milletini simgeler; ölçüleri 1936 tarihli Türk Bayrağı Kanunu’yla belirlenmiştir.|Dünyadaki fındığın yaklaşık üçte ikisi Türkiye’de üretiliyor. İstanbul da iki kıtaya yayılan en kalabalık şehir.
+AL|Arnavutluk|6|8|#E41E20|2|20.1|41.1|Albania|Çift başlı kartal, ulusal kahraman İskender Bey’in (Skanderbeg) sembolüdür.|Komünist dönemde ülkeye 170 binden fazla beton sığınak inşa edildi.
+GR|Yunanistan|7|8|#0D5EAF|2|22|39.4|Greece|Mavi deniz ve gökyüzünü, beyaz dalgaları simgeler; dokuz şeridin “Özgürlük ya da ölüm” sözünün hecelerine karşılık geldiği söylenir.|6.000’den fazla adası var ama yalnızca 200 kadarında insan yaşıyor.
+CY|Kıbrıs Cumhuriyeti|9|8|#D57800|1|33.1|34.95|Cyprus|Bakır rengi harita adanın eski bakır madenlerini, zeytin dalları barışı simgeler.|Hellim peyniri bu adaya özgüdür.
+`;
+const EXTRA_RAW = `
+ENG|İngiltere|0|0|#CE1124|2|-1.5|52.5||Beyaz zemin üzerinde Aziz George’un kırmızı haçı.|Birleşik Krallık’ı oluşturan dört ülkeden biri; kendi bayrağı futbol maçlarında çok görülür.
+SCT|İskoçya|0|0|#005EB8|2|-4|56.8||Mavi zeminde beyaz çapraz haç: Aziz Andrew’un X şeklindeki haçı.|Ulusal hayvanı tek boynuzlu at!
+WLS|Galler|0|0|#00B140|2|-3.7|52.3||Kırmızı ejderha “Y Ddraig Goch”; yeşil ve beyaz Tudor hanedanının renkleri.|Union Jack’te Galler’e ait hiçbir öğe yok; bayrak oluşturulduğunda Galler, İngiltere Krallığı’nın parçası sayılıyordu.
+`;
+const SETS = [
+ {id:'slav', t:'Slav üç renklileri', m:['RU','SK','SI','RS','HR','CZ'], tip:'Rusya armasızdır. Slovakya ve Slovenya’da beyaz üstte: Slovakya’nın armasında üç mavi tepe üzerinde çift haç, Slovenya’nınkinde beyaz bir dağ ve üç yıldız var. Sırbistan ve Hırvatistan’da kırmızı üstte: Sırbistan’da çift başlı kartal, Hırvatistan’da damalı arma. Çekya’da üç şerit yok; soldan bir mavi üçgen giriyor.'},
+ {id:'nordic', t:'İskandinav haçları', m:['NO','DK','SE','FI','IS'], tip:'Kırmızı zemin: Danimarka’da sade beyaz haç, Norveç’te beyaz kenarlı mavi haç. Mavi zemin: İsveç’te sarı haç, İzlanda’da beyaz kenarlı kırmızı haç. Beyaz zemin: Finlandiya’da mavi haç.'},
+ {id:'cross', t:'Haçlar ve Birleşik Krallık', m:['GB','ENG','SCT','WLS','CH','DK','GR'], tip:'İngiltere: beyaz zemin, kırmızı düz haç. İskoçya: mavi zemin, beyaz çapraz haç. Galler: yeşil-beyaz zemin, kırmızı ejderha. Birleşik Krallık hepsini birleştirir, Galler hariç. İsviçre’nin haçı kısa kollu ve kare bayrağın ortasında; Danimarka’nınki kenarlara kadar uzanır ve sola kaymıştır. Yunanistan’da haç sol üst köşede.'},
+ {id:'redwhite', t:'Kırmızı-beyazlar', m:['PL','MC','AT','LV','MT'], tip:'Polonya’da beyaz üstte, Monako’da kırmızı üstte. Avusturya kırmızı-beyaz-kırmızı; Letonya’da aynı düzen ama kırmızı koyu bordo, beyaz şerit ince. Malta dikey ikiye bölünür, sol üstte küçük bir haç nişanı vardır.'},
+ {id:'vert', t:'Dikey üç renkliler', m:['FR','IT','IE','BE','RO','MD','AD'], tip:'Fransa mavi-beyaz-kırmızı. İtalya yeşil-beyaz-kırmızı, İrlanda yeşil-beyaz-turuncu. Belçika siyah-sarı-kırmızı. Mavi-sarı-kırmızı üçlüsünde Romanya sade, Moldova’nın ortasında kartallı arma, Andorra’nın ortasında başka bir arma var.'},
+ {id:'horiz', t:'Yatay üç renkliler', m:['NL','LU','DE','HU','BG','LT','EE'], tip:'Hollanda ve Lüksemburg kırmızı-beyaz-mavi; Lüksemburg’un mavisi açık. Almanya siyah-kırmızı-altın. Macaristan’da kırmızı üstte (kırmızı-beyaz-yeşil), Bulgaristan’da beyaz üstte (beyaz-yeşil-kırmızı). Litvanya sarı-yeşil-kırmızı, Estonya mavi-siyah-beyaz.'},
+ {id:'balkan', t:'Balkan bayrakları', m:['AL','ME','RS','MK','XK','BA','HR'], tip:'Arnavutluk: kırmızı zemin, siyah kartal. Karadağ: kırmızı zemin, altın kenarlık ve altın kartal. Sırbistan: kırmızı-mavi-beyaz şerit ve kartallı arma. Kuzey Makedonya: kırmızı zemin, sarı güneş. Kosova: mavi zemin, ülke haritası. Bosna-Hersek: mavi zemin, sarı üçgen. Hırvatistan: damalı arma.'},
+];
+const CONTS = [['Avrupa',true],['Asya',false],['Afrika',false],['Amerika',false],['Okyanusya',false]];
+const TAGS = {ENG:'gbeng', SCT:'gbsct', WLS:'gbwls'};
+
+function parse(raw, extra){ return raw.trim().split('\n').map(l=>{ const [c,n,x,y,col,s,lon,lat,alias,sym,wow]=l.split('|');
+  return {c,n,x:+x,y:+y,col,s:+s,lon:+lon,lat:+lat,alias:alias?alias.split(';'):[],sym,wow,extra}; }); }
+const DATA = parse(RAW,false), EXTRA = parse(EXTRA_RAW,true), N = DATA.length, KEY = 'bayrak-atlasi-v1';
+const byCode = Object.fromEntries([...DATA,...EXTRA].map(d=>[d.c,d]));
+const flag = c => TAGS[c] ? '\u{1F3F4}'+[...TAGS[c]].map(ch=>String.fromCodePoint(0xE0000+ch.charCodeAt(0))).join('')+'\u{E007F}'
+                          : String.fromCodePoint(...[...c].map(ch=>127397+ch.charCodeAt(0)));
+const mapCode = d => d.extra ? 'GB' : d.c;
+const $ = id => document.getElementById(id);
+const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]} return a; };
+const stars = l => '★'.repeat(l)+'☆'.repeat(3-l);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function load(){ try{ const o=JSON.parse(localStorage.getItem(KEY)); if(o && o.p){ o.sets=o.sets||{}; return o; } }catch(e){} return {mode:'f2n',p:{},best:0,sets:{}}; }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+let S = load();
+const P = c => S.p[c] || (S.p[c] = {l:0,c:0,w:0});
+let streak=0, cur=null, curMode='f2n', recent=[], answered=false, round=null, toastT, resetArmed=false, hitCode=null;
+
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2300); }
+function tapCountry(c){ const d=byCode[c], l=P(c).l; toast(l ? `${flag(c)} ${d.n}  ${stars(l)}` : 'Henüz keşfedilmedi. Bayrağını bil, haritada belirsin!'); }
+
+/* ---------- HARİTA ---------- */
+const DEG=Math.PI/180, R=1000, L0=15*DEG, P0=52*DEG;
+function proj(lon,lat){ const l=lon*DEG-L0, p=lat*DEG, cp=Math.cos(p);
+  const k=Math.sqrt(2/(1+Math.sin(P0)*Math.sin(p)+Math.cos(P0)*cp*Math.cos(l)));
+  return [R*k*cp*Math.sin(l), -R*k*(Math.cos(P0)*Math.sin(p)-Math.sin(P0)*cp*Math.cos(l))]; }
+const FULL={x:-365,y:-360,w:790,h:658};
+const ZW=[.11,.18,.28,.44], FS=[12,12,15,19];
+let vb={...FULL}, svg=null, mapReady=false, anim=null;
+
+function decode(json){
+  if(!json.UTF8Encoding) return json;
+  const sc=json.UTF8Scale||1024;
+  const dec=(s,o)=>{ const r=[]; let px=o[0], py=o[1];
+    for(let i=0;i<s.length;i+=2){ let x=s.charCodeAt(i)-64, y=s.charCodeAt(i+1)-64;
+      x=(x>>1)^(-(x&1)); y=(y>>1)^(-(y&1)); x+=px; y+=py; px=x; py=y; r.push([x/sc,y/sc]); } return r; };
+  json.features.forEach(f=>{ const g=f.geometry; if(!g) return; const c=g.coordinates, o=g.encodeOffsets;
+    if(g.type==='Polygon') c.forEach((r,i)=>c[i]=dec(r,o[i]));
+    else if(g.type==='MultiPolygon') c.forEach((poly,i)=>poly.forEach((r,j)=>poly[j]=dec(r,o[i][j]))); });
+  json.UTF8Encoding=false; return json;
+}
+function ringPath(ring){
+  let minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  for(const [x,y] of ring){ if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y; }
+  if(maxX<-35||minX>70||maxY<25||minY>84) return '';
+  let s='', lx=1e9, ly=1e9;
+  ring.forEach(([lo,la],i)=>{ const [x,y]=proj(lo,la); if(i && Math.abs(x-lx)+Math.abs(y-ly)<0.6) return; s+=(s?'L':'M')+x.toFixed(1)+','+y.toFixed(1); lx=x; ly=y; });
+  return s ? s+'Z' : '';
+}
+window.echarts = { registerMap(name, json){ if(name==='world') onWorld(json); } };
+function onWorld(json){ if(mapReady) return; try{ buildSvg(decode(json)); }catch(err){ console.error(err); mapFail(); } }
+
+function buildSvg(json){
+  const want=new Map(); DATA.forEach(d=>d.alias.forEach(a=>want.set(a.toLowerCase(), d.c)));
+  let bg='', ct=''; const found=new Set();
+  json.features.forEach(f=>{ const g=f.geometry; if(!g) return;
+    const polys = g.type==='Polygon' ? [g.coordinates] : g.type==='MultiPolygon' ? g.coordinates : [];
+    const d = polys.map(p=>p.map(ringPath).join('')).join(''); if(!d) return;
+    const code = want.get(((f.properties||{}).name||'').toLowerCase());
+    if(code && byCode[code].s>0){ found.add(code); ct+=`<path class="cty" data-c="${code}" style="--c:${byCode[code].col}" d="${d}"/>`; }
+    else bg+=`<path class="bg" d="${d}"/>`;
+  });
+  let mic='', lbl='';
+  DATA.forEach(d=>{ const [x,y]=proj(d.lon,d.lat);
+    if(!found.has(d.c)) mic+=`<circle class="cty micro" data-c="${d.c}" style="--c:${d.col}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"/>`;
+    lbl+=`<text class="lbl" data-lc="${d.c}" data-s="${found.has(d.c)?d.s:0}" x="${x.toFixed(1)}" y="${(found.has(d.c)?y:y-11).toFixed(1)}">${flag(d.c)}</text>`;
+  });
+  $('mapwrap').innerHTML = `<svg id="svg" viewBox="${FULL.x} ${FULL.y} ${FULL.w} ${FULL.h}" role="img" aria-label="Avrupa haritası">
+    <g>${bg}</g><g id="gc">${ct}</g><g>${mic}</g><g>${lbl}</g></svg>
+    <button class="zbtn" id="zbtn">Tüm Avrupa</button>`;
+  svg=$('svg'); mapReady=true;
+  $('zbtn').onclick=()=>animateTo(FULL);
+  initGestures(); paintMap(); setVB();
+  addEventListener('resize', rescale);
+}
+function mapFail(){
+  if(mapReady) return; mapReady=true;
+  $('mapwrap').innerHTML = '<div class="tiles" id="tiles">'+DATA.map(d=>`<button class="t" data-c="${d.c}" style="grid-column:${d.x+1};grid-row:${d.y+1}"><span>${flag(d.c)}</span></button>`).join('')+'</div>';
+  $('tiles').onclick = e => { const b=e.target.closest('[data-c]'); if(b) tapCountry(b.dataset.c); };
+  toast('Gerçek harita yüklenemedi, basit haritaya geçildi');
+  paintMap();
+}
+setTimeout(()=>{ if(!mapReady) mapFail(); }, 12000);
+
+function rescale(){ if(!svg) return; const w=svg.getBoundingClientRect().width||360, k=vb.w/w;
+  svg.querySelectorAll('.lbl').forEach(t=>t.setAttribute('font-size',(FS[+t.dataset.s]*k).toFixed(2)));
+  svg.querySelectorAll('circle.micro').forEach(c=>c.setAttribute('r',(6*k).toFixed(2))); }
+function setVB(){ if(!svg) return; svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${vb.w} ${vb.h}`); rescale();
+  $('mapwrap').classList.toggle('zoomed', vb.w < FULL.w*.97); }
+function clampVB(){ vb.w=Math.min(FULL.w, Math.max(FULL.w/12, vb.w)); vb.h=vb.w*FULL.h/FULL.w;
+  const cx=Math.min(FULL.x+FULL.w, Math.max(FULL.x, vb.x+vb.w/2)), cy=Math.min(FULL.y+FULL.h, Math.max(FULL.y, vb.y+vb.h/2));
+  vb.x=cx-vb.w/2; vb.y=cy-vb.h/2; if(vb.w>=FULL.w){ vb.x=FULL.x; vb.y=FULL.y; } }
+function stopAnim(){ if(anim){ cancelAnimationFrame(anim); anim=null; } }
+function animateTo(t, ms=700){ if(!svg) return; stopAnim(); const s={...vb}, t0=performance.now(); if(reduced) ms=1;
+  const step=now=>{ let p=Math.min(1,(now-t0)/ms); p=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+    for(const k of ['x','y','w','h']) vb[k]=s[k]+(t[k]-s[k])*p; setVB(); anim = p<1 ? requestAnimationFrame(step) : null; };
+  anim=requestAnimationFrame(step); }
+function zoomTo(c){ const d=byCode[c]; if(!svg||!d) return; const [cx,cy]=proj(d.lon,d.lat);
+  const w=FULL.w*ZW[d.s], h=w*FULL.h/FULL.w; const t={x:cx-w/2,y:cy-h/2,w,h};
+  const save={...vb}; vb={...t}; clampVB(); const target={...vb}; vb=save; animateTo(target, 900); }
+
+function initGestures(){
+  const pts=new Map(); let moved=false, down=null, lastTap=0;
+  svg.addEventListener('pointerdown', e=>{ svg.setPointerCapture(e.pointerId); pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1){ moved=false; down={x:e.clientX,y:e.clientY,t:e.target}; } stopAnim(); });
+  svg.addEventListener('pointermove', e=>{ if(!pts.has(e.pointerId)) return;
+    const prev=pts.get(e.pointerId), now={x:e.clientX,y:e.clientY}, r=svg.getBoundingClientRect(), k=vb.w/r.width;
+    if(pts.size===1){ if(Math.hypot(now.x-down.x,now.y-down.y)>6) moved=true;
+      if(moved){ vb.x-=(now.x-prev.x)*k; vb.y-=(now.y-prev.y)*k; clampVB(); setVB(); } }
+    else if(pts.size===2){ moved=true;
+      const old=[...pts.values()], neu=[...pts.entries()].map(([id,p])=>id===e.pointerId?now:p);
+      const dist=a=>Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y), mid=a=>({x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2});
+      const m0=mid(old), m1=mid(neu), wx=vb.x+(m0.x-r.left)*k, wy=vb.y+(m0.y-r.top)*k;
+      vb.w*=dist(old)/Math.max(1,dist(neu)); clampVB(); const k2=vb.w/r.width;
+      vb.x=wx-(m1.x-r.left)*k2; vb.y=wy-(m1.y-r.top)*k2; clampVB(); setVB(); }
+    pts.set(e.pointerId,now); });
+  const end=e=>{ if(!pts.has(e.pointerId)) return; const single=pts.size===1; pts.delete(e.pointerId);
+    if(single && !moved && down){ const now=Date.now();
+      if(now-lastTap<300){ animateTo(FULL); lastTap=0; return; } lastTap=now;
+      const el=down.t.closest && down.t.closest('[data-c]'); if(el) tapCountry(el.dataset.c); } };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  svg.addEventListener('wheel', e=>{ e.preventDefault(); stopAnim(); const r=svg.getBoundingClientRect(), k=vb.w/r.width;
+    const wx=vb.x+(e.clientX-r.left)*k, wy=vb.y+(e.clientY-r.top)*k; vb.w*=Math.exp(e.deltaY*0.0015); clampVB();
+    const k2=vb.w/r.width; vb.x=wx-(e.clientX-r.left)*k2; vb.y=wy-(e.clientY-r.top)*k2; clampVB(); setVB(); }, {passive:false});
+}
+const mapEls = c => document.querySelectorAll(`#mapwrap [data-c="${c}"]`);
+const lblEl = c => document.querySelector(`#mapwrap [data-lc="${c}"]`);
+function paintMap(){
+  let sum=0, done=0;
+  DATA.forEach(d=>{ const l=P(d.c).l; sum+=l; if(l===3) done++;
+    mapEls(d.c).forEach(el=>el.dataset.l=l); const t=lblEl(d.c); if(t) t.dataset.l=l; });
+  const pct=Math.round(sum/(3*N)*100);
+  $('progPct').textContent=`Avrupa  %${pct}`; $('progNum').textContent=`⭐ ${done}/${N}`; $('barFill').style.width=pct+'%';
+  return done;
+}
+function highlight(c, ok){
+  clearHit(); hitCode=c;
+  mapEls(c).forEach(el=>{ el.classList.add('hit', ok?'ok':'bad'); if(el.tagName==='path') el.parentNode.appendChild(el); });
+  const t=lblEl(c); if(t) t.classList.add('reveal');
+  zoomTo(c);
+}
+function clearHit(){ if(!hitCode) return; mapEls(hitCode).forEach(el=>el.classList.remove('hit','ok','bad'));
+  const t=lblEl(hitCode); if(t) t.classList.remove('reveal'); hitCode=null; }
+
+/* ---------- OYUN ---------- */
+function paintStreak(){ $('streak').innerHTML=`🔥 ${streak}<small>En iyi ${S.best||0}</small>`; }
+function paintSeg(){ [...$('seg').children].forEach(b=>b.classList.toggle('on', b.dataset.m===S.mode)); }
+function pick(){
+  const pool=DATA.filter(d=>!recent.includes(d.c));
+  const w=pool.map(d=>{ const p=P(d.c); let v=(4-p.l)**2; if(!p.c&&!p.w) v+=4; return v; });
+  let r=Math.random()*w.reduce((a,b)=>a+b,0);
+  for(let i=0;i<pool.length;i++){ r-=w[i]; if(r<=0) return pool[i]; } return pool[pool.length-1];
+}
+function choices(c){
+  let sims=[]; SETS.forEach(s=>{ if(s.m.includes(c)) sims.push(...s.m.filter(x=>x!==c && !byCode[x].extra)); });
+  sims=shuffle([...new Set(sims)]).slice(0, Math.random()<.7?2:1);
+  const rest=shuffle(DATA.map(d=>d.c).filter(x=>x!==c && !sims.includes(x)));
+  return shuffle([c,...sims,...rest].slice(0,4));
+}
+function backToTop(){ if(innerWidth<860 && scrollY>40) scrollTo({top:0, behavior:reduced?'auto':'smooth'}); }
+
+function ask(d, mode, opts, head){
+  cur=d; curMode=mode; answered=false; clearHit(); if(svg) animateTo(FULL, 500);
+  const f2n=mode==='f2n';
+  $('qbody').innerHTML = head +
+    (f2n ? `<div class="prompt"><div class="bigflag" aria-label="Bayrak">${flag(d.c)}</div><p>Bu hangi ülkenin bayrağı?</p></div>`
+         : `<div class="prompt"><div class="bigname">${d.n}</div><p>Bu ülkenin bayrağı hangisi?</p></div>`) +
+    `<div class="opts${f2n?'':' flags'}">` + opts.map((x,i)=>`<button class="opt" data-c="${x}" aria-label="${f2n?byCode[x].n:'Seçenek '+(i+1)}">${f2n?byCode[x].n:flag(x)}</button>`).join('') + `</div><div id="fb"></div>`;
+}
+function nextNormal(){ backToTop(); const d=pick(); recent.push(d.c); if(recent.length>5) recent.shift(); ask(d, S.mode, choices(d.c), ''); }
+
+function answer(btn){
+  if(answered) return; answered=true;
+  const d=cur, chosen=btn.dataset.c, ok=chosen===d.c;
+  let lvl=null;
+  if(!d.extra){ const p=P(d.c); if(ok){ p.c++; p.l=Math.min(3,p.l+1); } else { p.w++; p.l=Math.max(0,p.l-1); } lvl=p.l; }
+  if(ok){ streak++; S.best=Math.max(S.best||0,streak); } else streak=0;
+  if(round && ok) round.score++;
+  save();
+  document.querySelectorAll('#qbody .opt').forEach(b=>{ b.disabled=true; if(b.dataset.c===d.c) b.classList.add('right'); else if(b===btn) b.classList.add('wrong'); });
+  const done=paintMap(); paintStreak(); highlight(mapCode(d), ok);
+  let h=`<div class="fb"><div class="fbhead ${ok?'ok':'bad'}">${ok?'Doğru!':'Olmadı'}</div>
+    <div class="fbc"><span class="f">${flag(d.c)}</span><b>${d.n}</b>${lvl!==null?`<span class="stars">${stars(lvl)}</span>`:''}</div>`;
+  if(!ok) h+=`<p class="chose">Senin seçtiğin: ${flag(chosen)} ${byCode[chosen].n}</p>`;
+  h+=`<div class="info"><h4>🎨 Bayrağın anlamı</h4><p>${d.sym}</p></div><div class="info"><h4>🤯 Bunu biliyor muydun?</h4><p>${d.wow}</p></div>`;
+  if(ok && lvl===3) h+=`<p class="star">⭐ ${d.n} haritada tam renk oldu!</p>`;
+  if(done===N) h+=`<p class="star">🏆 Avrupa’nın bütün bayraklarını öğrendin!</p>`;
+  const last = round && round.i===round.seq.length-1;
+  h+=`<button class="next" id="nextBtn">${last?'Sonucu gör':'Sıradaki bayrak'}</button></div>`;
+  $('fb').innerHTML=h;
+  $('nextBtn').onclick = round ? ()=>{ round.i++; round.i<round.seq.length ? askRound() : showResult(); } : nextNormal;
+}
+
+/* ---------- KARIŞTIRILANLAR ---------- */
+function setList(){
+  round=null; clearHit(); if(svg) animateTo(FULL,500);
+  $('qbody').innerHTML = `<div class="setlist"><p>Birbirine en çok benzeyen bayraklar. Her turda 8 soru var ve şıkların hepsi aynı gruptan geliyor.</p>` +
+    SETS.map(s=>{ const b=S.sets[s.id]; return `<button class="set" data-id="${s.id}"><b>${s.t}</b><span class="sf">${s.m.map(flag).join('')}</span><small>${b!=null?`En iyi skorun ${b}/8`:'Henüz oynanmadı'}</small></button>`; }).join('') + `</div>`;
+}
+function setIntro(s){
+  backToTop();
+  $('qbody').innerHTML = `<div class="intro"><h3>${s.t}</h3><div class="sf big">${s.m.map(flag).join(' ')}</div>
+    <div class="tip"><b>Nasıl ayırt edilir?</b>${s.tip}</div>
+    <button class="next" id="nextBtn">Başla</button><button class="ghost" id="backBtn">Gruplara dön</button></div>`;
+  $('nextBtn').onclick=()=>startRound(s); $('backBtn').onclick=setList;
+}
+function startRound(s){ const seq=[]; let last=null;
+  for(let i=0;i<8;i++){ let c; do{ c=s.m[Math.random()*s.m.length|0]; }while(c===last); seq.push(c); last=c; }
+  round={set:s, seq, i:0, score:0}; askRound(); }
+function askRound(){ backToTop(); const c=round.seq[round.i], others=shuffle(round.set.m.filter(x=>x!==c)).slice(0,3);
+  ask(byCode[c], round.i%2?'n2f':'f2n', shuffle([c,...others]), `<div class="rhead"><span>${round.set.t}</span><span>${round.i+1}/8</span></div>`); }
+function showResult(){
+  backToTop(); clearHit(); if(svg) animateTo(FULL,500);
+  const s=round.set, sc=round.score, prev=S.sets[s.id]; S.sets[s.id]=Math.max(prev||0, sc); save();
+  const msg = sc===8 ? 'Kusursuz! Bu grubu artık gözü kapalı ayırt ediyorsun.' : sc>=6 ? 'Çok iyi, birkaç tekrar daha ve tamamdır.' : 'Bu grup zor; ipuçlarına bir daha göz atıp tekrar dene.';
+  $('qbody').innerHTML = `<div class="result"><h3>${s.t}</h3><div class="score">${sc}/8</div><p>${msg}${prev!=null && sc>prev?' Yeni rekor!':''}</p>
+    <div class="tip"><b>Hatırlatma</b>${s.tip}</div>
+    <button class="next" id="nextBtn">Tekrar oyna</button><button class="ghost" id="backBtn">Gruplara dön</button></div>`;
+  $('nextBtn').onclick=()=>startRound(s); $('backBtn').onclick=setList;
+}
+
+/* ---------- OLAYLAR ---------- */
+function start(){ round=null; S.mode==='sets' ? setList() : nextNormal(); }
+$('qbody').onclick = e => { const o=e.target.closest('.opt'); if(o) return answer(o);
+  const s=e.target.closest('.set'); if(s) setIntro(SETS.find(x=>x.id===s.dataset.id)); };
+$('seg').onclick = e => { const b=e.target.closest('button'); if(!b) return; if(b.dataset.m===S.mode && !(S.mode==='sets' && round)) return;
+  S.mode=b.dataset.m; save(); paintSeg(); start(); };
+$('conts').innerHTML = CONTS.map(([n,open])=>`<button class="chip${open?' on':''}" data-open="${open}">${open?'':'🔒 '}${n}</button>`).join('');
+$('conts').onclick = e => { const b=e.target.closest('.chip'); if(b && b.dataset.open==='false') toast('Yakında açılacak. Önce Avrupa’yı fethet!'); };
+$('reset').onclick = () => {
+  if(!resetArmed){ resetArmed=true; toast('Tüm ilerlemeyi silmek için tekrar dokun'); setTimeout(()=>resetArmed=false,3000); return; }
+  resetArmed=false; S={mode:S.mode,p:{},best:0,sets:{}}; save(); streak=0; paintMap(); paintStreak(); start(); toast('İlerleme sıfırlandı'); };
+document.addEventListener('keydown', e => {
+  const opts=document.querySelectorAll('#qbody .opt');
+  if(!answered && opts.length && ['1','2','3','4'].includes(e.key)){ const b=opts[+e.key-1]; if(b) answer(b); }
+  else if(e.key==='Enter'){ const n=$('nextBtn'); if(n){ e.preventDefault(); n.click(); } }
+});
+paintSeg(); paintStreak(); paintMap(); start();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/js/world.js" crossorigin="anonymous" onerror="mapFail()"></script>
+<script>if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
+</body>
+</html>
